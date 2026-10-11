@@ -147,9 +147,15 @@ LocalizationNode::LocalizationNode(const rclcpp::NodeOptions & options)
   initial_roll_ = declare_parameter<double>("initial_roll", 0.0);
   initial_pitch_ = declare_parameter<double>("initial_pitch", 0.0);
   initial_use_2d_ = declare_parameter<bool>("initial_pose_use_2d", true);
+  // Startup pose; /initialpose (RViz 2D Pose Estimate) can still override it.
+  const double initial_x = declare_parameter<double>("initial_x", 0.0);
+  const double initial_y = declare_parameter<double>("initial_y", 0.0);
+  const double initial_yaw = declare_parameter<double>("initial_yaw", 0.0);
   position_stddev_ = positiveParameter("pose_position_stddev", 0.3);
   angle_stddev_ = positiveParameter("pose_angle_stddev", 0.1);
-  for (double v : {tf_tolerance_, scan_time_offset_, initial_z_, initial_roll_, initial_pitch_}) {
+  for (double v : {tf_tolerance_, scan_time_offset_, initial_z_, initial_roll_, initial_pitch_,
+      initial_x, initial_y, initial_yaw})
+  {
     if (!std::isfinite(v)) {throw std::invalid_argument("Non-finite time offset or initial pose setting");}
   }
   if (tf_tolerance_ < 0) {throw std::invalid_argument("transform_tolerance must be >= 0");}
@@ -181,8 +187,14 @@ LocalizationNode::LocalizationNode(const rclcpp::NodeOptions & options)
     std::bind(&LocalizationNode::publishStatusAndTf, this));
   RCLCPP_INFO(get_logger(), "Cloud: %s; odometry: %s; frames: %s -> %s -> %s",
     cloud_topic.c_str(), odom_topic.c_str(), map_frame_.c_str(), odom_frame_.c_str(), base_frame_.c_str());
-  RCLCPP_INFO(get_logger(), "Map published on %s. Waiting for %s (RViz 2D Pose Estimate).",
+  RCLCPP_INFO(get_logger(), "Map published on %s. Initial pose can be overridden via %s.",
     map_topic.c_str(), initial_topic.c_str());
+  Pose pose = Pose::Identity();
+  pose.translation() = Eigen::Vector3d(initial_x, initial_y, initial_z_);
+  pose.linear() = (Eigen::AngleAxisd(initial_yaw, Eigen::Vector3d::UnitZ()) *
+    Eigen::AngleAxisd(initial_pitch_, Eigen::Vector3d::UnitY()) *
+    Eigen::AngleAxisd(initial_roll_, Eigen::Vector3d::UnitX())).toRotationMatrix();
+  applyInitialPose(pose, 0.0);
   worker_ = std::thread(&LocalizationNode::workerLoop, this);
 }
 LocalizationNode::~LocalizationNode()
@@ -243,15 +255,19 @@ void LocalizationNode::initialPoseCallback(geometry_msgs::msg::PoseWithCovarianc
       Eigen::AngleAxisd(initial_pitch_, Eigen::Vector3d::UnitY()) *
       Eigen::AngleAxisd(initial_roll_, Eigen::Vector3d::UnitX())).toRotationMatrix();
   }
+  applyInitialPose(*pose, seconds(msg->header.stamp));
+}
+void LocalizationNode::applyInitialPose(const Pose & pose, double request_stamp)
+{
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    state_->initialize(*pose); ++generation_; pending_scan_.reset();
-    initial_request_stamp_ = seconds(msg->header.stamp); last_scan_stamp_ = -1;
+    state_->initialize(pose); ++generation_; pending_scan_.reset();
+    initial_request_stamp_ = request_stamp; last_scan_stamp_ = -1;
     reason_ = "waiting_scan_and_odometry";
   }
   cv_.notify_all();
   RCLCPP_INFO(get_logger(), "Initial pose accepted: [%.3f, %.3f, %.3f]; waiting for first valid alignment",
-    pose->translation().x(), pose->translation().y(), pose->translation().z());
+    pose.translation().x(), pose.translation().y(), pose.translation().z());
 }
 void LocalizationNode::workerLoop()
 {

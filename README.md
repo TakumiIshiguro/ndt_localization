@@ -77,7 +77,8 @@ child_frame_id=base_link とし、外部の同名 TF と同じ軌跡を表す必
 - 地図: PCD 読み込み → 有限座標のみ抽出 → VoxelGrid → 最低点数検査。元ファイルは変更しません。
 - 点群: 有効XYZと距離フィルタ → base_linkへ変換 → VoxelGrid → 周辺地図とNDT照合。
 - 予測: 点群時刻を挟む Odometry.pose を線形補間 + SLERP。外挿はしません。
-- 初回: `/initialpose` の X/Y/yaw と initial_z/roll/pitch を使用。以後は6自由度照合。
+- 初回: 起動時は initial_x/y/yaw と initial_z/roll/pitch を初期姿勢として使用。
+  `/initialpose` を受け取るとその X/Y/yaw で初期化し直します。以後は6自由度照合。
   完全な6自由度の初期姿勢を送る場合は `initial_pose_use_2d: false` にします。
 - ワーカーは最新点群1件を処理し、ROS のオドメトリ受信を止めません。
 - 収束、有限変換、近傍点距離RMSE、対応点割合、予測からの補正量で採否判定します。

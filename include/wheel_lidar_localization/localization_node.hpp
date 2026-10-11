@@ -23,6 +23,7 @@ private:
   void odometryCallback(nav_msgs::msg::Odometry::ConstSharedPtr msg);
   void cloudCallback(sensor_msgs::msg::PointCloud2::ConstSharedPtr msg);
   void initialPoseCallback(geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg);
+  void applyInitialPose(const Pose & pose, double request_stamp);
   void workerLoop();
   void processScan(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg,
     std::uint64_t generation);
