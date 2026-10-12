@@ -29,6 +29,22 @@ find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 set(warnings -Wall -Wextra -Wpedantic)
 
+# autoware_ndt_scan_matcher: multigrid_ndt_omp (vendored, BSD-2 / Apache-2.0, see ndt_omp/LICENSE)
+add_library(multigrid_ndt_omp SHARED
+  src/ndt_scan_matcher/ndt_omp/multi_voxel_grid_covariance_omp.cpp
+  src/ndt_scan_matcher/ndt_omp/multigrid_ndt_omp.cpp)
+target_include_directories(multigrid_ndt_omp PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> ${PCL_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
+target_link_libraries(multigrid_ndt_omp PUBLIC ${PCL_LIBRARIES} OpenMP::OpenMP_CXX)
+
+install(TARGETS multigrid_ndt_omp
+  ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_ndt_omp test/test_ndt_omp.cpp TIMEOUT 120)
+  target_link_libraries(test_ndt_omp multigrid_ndt_omp)
+endif()
 ament_package()
