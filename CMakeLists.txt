@@ -66,7 +66,7 @@ rclcpp_components_register_node(ndt_scan_matcher
 
 install(TARGETS multigrid_ndt_omp localization_util ndt_scan_matcher
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install(DIRECTORY config rviz DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
