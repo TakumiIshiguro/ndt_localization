@@ -46,9 +46,27 @@ target_link_libraries(localization_util PUBLIC Eigen3::Eigen)
 ament_target_dependencies(localization_util PUBLIC rclcpp geometry_msgs tf2 tf2_eigen tf2_geometry_msgs)
 target_compile_options(localization_util PRIVATE ${warnings})
 
-install(TARGETS multigrid_ndt_omp localization_util
+# autoware_ndt_scan_matcher (+ in-process map loading and sensor preprocessing)
+add_library(ndt_scan_matcher SHARED
+  src/ndt_scan_matcher/ndt_scan_matcher_core.cpp
+  src/ndt_scan_matcher/ndt_scan_matcher_helper.cpp
+  src/map_loader/pointcloud_map_loader.cpp
+  src/pointcloud_preprocessor/pointcloud_preprocessor.cpp)
+target_include_directories(ndt_scan_matcher PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
+target_link_libraries(ndt_scan_matcher localization_util multigrid_ndt_omp)
+ament_target_dependencies(ndt_scan_matcher rclcpp rclcpp_components sensor_msgs nav_msgs geometry_msgs
+  diagnostic_msgs tf2_ros pcl_conversions)
+target_compile_options(ndt_scan_matcher PRIVATE ${warnings})
+# autoware registers with ROS2_EXECUTOR MultiThreadedExecutor (autoware_agnocast_wrapper_register_node)
+rclcpp_components_register_node(ndt_scan_matcher
+  PLUGIN "ndt_localization::ndt_scan_matcher::NDTScanMatcher"
+  EXECUTABLE ndt_scan_matcher_node
+  EXECUTOR MultiThreadedExecutor)
+
+install(TARGETS multigrid_ndt_omp localization_util ndt_scan_matcher
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
@@ -57,6 +75,10 @@ if(BUILD_TESTING)
   foreach(test_name util_func smart_pose_buffer)
     ament_add_gtest(test_${test_name} test/test_${test_name}.cpp)
     target_link_libraries(test_${test_name} localization_util)
+  endforeach()
+  foreach(test_name ndt_scan_matcher_helper pointcloud_preprocessor)
+    ament_add_gtest(test_${test_name} test/test_${test_name}.cpp)
+    target_link_libraries(test_${test_name} ndt_scan_matcher)
   endforeach()
   ament_add_gtest(test_ndt_omp test/test_ndt_omp.cpp TIMEOUT 120)
   target_link_libraries(test_ndt_omp multigrid_ndt_omp)

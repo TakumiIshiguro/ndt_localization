@@ -1,0 +1,62 @@
+# Reference: autoware_core (commit e0a8ab84)
+#   localization/autoware_ndt_scan_matcher/config/ndt_scan_matcher.param.yaml
+# Same names and defaults for the ported parameters; see hyper_parameters.hpp for what is not
+# ported and what is "(this package only)".
+/**:
+  ros__parameters:
+    frame:
+      base_frame: base_link
+      map_frame: map
+
+    # (this package only) replaces the map_loader node / dynamic_map_loading
+    map:
+      path: /home/takumi/map/tsudanuma_merged_map/merged.pcd
+
+    sensor_points:
+      timeout_sec: 1.0
+      # Scans whose farthest point (after preprocessing) is closer than this are skipped.
+      required_distance: 10.0
+      # (this package only) in-process crop/downsample; autoware does this in separate nodes
+      # (autoware_crop_box_filter, autoware_downsample_filters).
+      min_range: 1.0
+      # Kept from the v0.1 tuning on bag tsudanuma_3d_data_2; ndt_omp is much faster than
+      # pcl NDT, so this can likely be raised. Re-tune on the bag.
+      max_range: 18.0
+      voxel_size: 0.5
+
+    # autoware_ndt_scan_matcher defaults.
+    ndt:
+      trans_epsilon: 0.01
+      step_size: 0.1
+      resolution: 2.0
+      max_iterations: 30
+      num_threads: 4
+
+    validation:
+      # Initial guess comes from the map-frame EKF (robot_localization) odometry.
+      initial_pose_timeout_sec: 1.0
+      initial_pose_distance_tolerance_m: 10.0
+      # The next two only produce diagnostics warnings.
+      initial_to_result_distance_tolerance_m: 3.0
+      critical_upper_bound_exe_time_ms: 100.0
+      skipping_publish_num: 5
+
+    score_estimation:
+      # 0: transform probability (TP), 1: nearest voxel transformation likelihood (NVTL)
+      converged_param_type: 1
+      converged_param_transform_probability: 3.0
+      # autoware default. This map overlaps the scans only ~50-85%, so check the NVTL in
+      # /diagnostics on the bag and lower this if good alignments are being rejected.
+      converged_param_nearest_voxel_transformation_likelihood: 2.3
+
+    covariance:
+      # Fixed covariance in base_link (x, y, z, roll, pitch, yaw), rotated into map.
+      output_pose_covariance:
+        [
+          0.0225, 0.0,    0.0,    0.0,      0.0,      0.0,
+          0.0,    0.0225, 0.0,    0.0,      0.0,      0.0,
+          0.0,    0.0,    0.0225, 0.0,      0.0,      0.0,
+          0.0,    0.0,    0.0,    0.000625, 0.0,      0.0,
+          0.0,    0.0,    0.0,    0.0,      0.000625, 0.0,
+          0.0,    0.0,    0.0,    0.0,      0.0,      0.000625,
+        ]
