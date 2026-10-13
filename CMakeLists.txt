@@ -47,6 +47,13 @@ target_link_libraries(localization_util PUBLIC Eigen3::Eigen)
 ament_target_dependencies(localization_util PUBLIC rclcpp geometry_msgs tf2 tf2_eigen tf2_geometry_msgs)
 target_compile_options(localization_util PRIVATE ${warnings})
 
+# autoware_kalman_filter (vendored unchanged except the namespace and include prefix, Apache-2.0)
+add_library(kalman_filter SHARED
+  src/kalman_filter/kalman_filter.cpp
+  src/kalman_filter/time_delay_kalman_filter.cpp)
+target_include_directories(kalman_filter PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_link_libraries(kalman_filter PUBLIC Eigen3::Eigen)
+
 # autoware_ndt_scan_matcher (+ in-process map loading and sensor preprocessing)
 add_library(ndt_scan_matcher SHARED
   src/ndt_scan_matcher/ndt_scan_matcher_core.cpp
@@ -65,7 +72,7 @@ rclcpp_components_register_node(ndt_scan_matcher
   EXECUTABLE ndt_scan_matcher_node
   EXECUTOR MultiThreadedExecutor)
 
-install(TARGETS multigrid_ndt_omp localization_util ndt_scan_matcher
+install(TARGETS multigrid_ndt_omp localization_util kalman_filter ndt_scan_matcher
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
@@ -83,5 +90,10 @@ if(BUILD_TESTING)
   endforeach()
   ament_add_gtest(test_ndt_omp test/test_ndt_omp.cpp TIMEOUT 120)
   target_link_libraries(test_ndt_omp multigrid_ndt_omp)
+  # autoware_kalman_filter/test
+  foreach(test_name kalman_filter time_delay_kalman_filter)
+    ament_add_gtest(test_${test_name} test/test_${test_name}.cpp)
+    target_link_libraries(test_${test_name} kalman_filter)
+  endforeach()
 endif()
 ament_package()
