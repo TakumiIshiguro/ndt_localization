@@ -128,7 +128,7 @@ void NDTScanMatcher::callback_sensor_points(
 }
 
 // 参照: NDTScanMatcher::callback_sensor_points_main
-// 検査の内容と順番は Autoware と同じ。違い: 前処理（切り出しと間引き）をここで行う、
+// 検査の内容と順番は Autoware と同じ。違い: 前処理（間引き）をここで行う、
 // 正則化・out_of_map_range・地面除去スコア・マーカーとデバッグ用トピックがない、NDT を mutex で保護しない。
 bool NDTScanMatcher::callback_sensor_points_main(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr sensor_points_msg_in_sensor_frame)
@@ -161,9 +161,10 @@ bool NDTScanMatcher::callback_sensor_points_main(
   pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_points_in_sensor_frame(new pcl::PointCloud<PointSource>);
   const std::string & sensor_frame = sensor_points_msg_in_sensor_frame->header.frame_id;
   pcl::fromROSMsg(*sensor_points_msg_in_sensor_frame, *sensor_points_in_sensor_frame);
-  // (本パッケージ独自) 距離による切り出し。Autoware では前処理ノードが行う
-  sensor_points_in_sensor_frame = pointcloud_preprocessor::crop_by_range(
-    sensor_points_in_sensor_frame, param_.sensor_points.min_range, param_.sensor_points.max_range);
+  // (本パッケージ独自) ボクセルによる間引き。Autoware では手前の voxel_grid_downsample_filter ノードが
+  // センサ座標系のまま行うので、同じく base_link への変換の前に行う
+  sensor_points_in_sensor_frame = pointcloud_preprocessor::voxel_grid_downsample_filter(
+    sensor_points_in_sensor_frame, static_cast<float>(param_.sensor_points.voxel_size));
 
   // 点群をセンサ座標系から base_link に変換する
   pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_points_in_baselink_frame(new pcl::PointCloud<PointSource>);
@@ -179,10 +180,6 @@ bool NDTScanMatcher::callback_sensor_points_main(
     return false;
   }
   diagnostics_scan_points_->add_key_value("is_succeed_transform_sensor_points", true);
-
-  // (本パッケージ独自) ボクセルによる間引き。Autoware では前処理ノードが行う
-  sensor_points_in_baselink_frame = pointcloud_preprocessor::voxel_grid_downsample_filter(
-    sensor_points_in_baselink_frame, static_cast<float>(param_.sensor_points.voxel_size));
 
   // 検査: sensor_points_max_distance（遠くまで点があるか）
   double max_distance = 0.0;

@@ -12,7 +12,7 @@
 //    nav_msgs/Odometry の "ekf_odom"（robot_localization の出力）。
 //  - map_update_module / pcd_loader クライアントがない。PCD を 1 つコンストラクタで読み
 //    （map_loader/pointcloud_map_loader）、debug/loaded_pointcloud_map に配信する。
-//  - 点群の切り出しと間引きをノード内で行う（pointcloud_preprocessor）。
+//  - 点群の間引きをノード内で行う（pointcloud_preprocessor）。
 //  - 初期値は nav_msgs/Odometry で受け取る（robot_localization が PoseWithCovarianceStamped を出さないため）。
 //  - 移植していないもの: trigger_node / ndt_align サービス（常に有効扱い）、正則化、
 //    共分散推定（FIXED_VALUE のみ）、publish_tf / publish_marker とデバッグ用トピック。
@@ -90,8 +90,7 @@ private:
   /**
    * @brief 点群 1 回分の処理本体。前処理、初期値の補間、NDT 照合、採否判定、配信を行う。
    * @details Autoware と同じ順で検査する:
-   *          点数 → 遅延（警告のみ）→ 距離での切り出し（本パッケージ独自）→ base_link への変換 →
-   *          間引き（本パッケージ独自）→ 最大距離 → 初期値の補間 → 地図の有無 → 照合 → 反復回数・振動・スコア →
+   *          点数 → 遅延（警告のみ）→ 間引き（本パッケージ独自）→ base_link への変換 → 最大距離 → 初期値の補間 → 地図の有無 → 照合 → 反復回数・振動・スコア →
    *          共分散 → 初期値からの移動量（警告のみ）→ 処理時間（警告のみ）→ 配信。
    *          収束の条件は「(反復回数 < 上限 または 局所解で振動) かつ スコア > 閾値」。
    * @param[in] sensor_points_msg_in_sensor_frame LiDAR 点群（センサ座標系）。

@@ -4,8 +4,8 @@
 // config/ndt_scan_matcher.param.yaml ですべてを定義する必要がある。
 // 移植していないもの: frame.ndt_base_frame（デバッグ用 TF を出さない）、ndt.regularization、
 // initial_pose_estimation、covariance.covariance_estimation（FIXED_VALUE のみ）、dynamic_map_loading。
-// 本パッケージ独自: map.path と sensor_points.{min_range,max_range,voxel_size}
-// （Autoware では map_loader ノードと点群の前処理ノードが受け持つ設定）。
+// 本パッケージ独自: map.path と sensor_points.voxel_size
+// （Autoware では map_loader ノードと voxel_grid_downsample_filter ノードが受け持つ設定）。
 #pragma once
 #include "ndt_localization/ndt_scan_matcher/ndt_omp/ndt_struct.hpp"
 #include <rclcpp/rclcpp.hpp>
@@ -42,9 +42,7 @@ struct HyperParameters
   {
     double timeout_sec{};
     double required_distance{};
-    // (本パッケージ独自) Autoware の前処理ノード（crop_box_filter、voxel_grid_downsample_filter）の代わり
-    double min_range{};
-    double max_range{};
+    // (本パッケージ独自) Autoware の voxel_grid_downsample_filter ノードの代わり
     double voxel_size{};
   } sensor_points{};
 
@@ -87,8 +85,6 @@ struct HyperParameters
 
     sensor_points.timeout_sec = node->declare_parameter<double>("sensor_points.timeout_sec");
     sensor_points.required_distance = node->declare_parameter<double>("sensor_points.required_distance");
-    sensor_points.min_range = node->declare_parameter<double>("sensor_points.min_range");
-    sensor_points.max_range = node->declare_parameter<double>("sensor_points.max_range");
     sensor_points.voxel_size = node->declare_parameter<double>("sensor_points.voxel_size");
 
     ndt.trans_epsilon = node->declare_parameter<double>("ndt.trans_epsilon");

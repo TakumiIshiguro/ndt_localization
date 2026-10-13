@@ -16,13 +16,10 @@
       timeout_sec: 1.0
       # Scans whose farthest point (after preprocessing) is closer than this are skipped.
       required_distance: 10.0
-      # (this package only) in-process crop/downsample; autoware does this in separate nodes
-      # (autoware_crop_box_filter, autoware_downsample_filters).
-      min_range: 1.0
-      # Kept from the v0.1 tuning on bag tsudanuma_3d_data_2; ndt_omp is much faster than
-      # pcl NDT, so this can likely be raised. Re-tune on the bag.
-      max_range: 18.0
-      voxel_size: 0.5
+      # (this package only) in-process voxel grid downsampling in the sensor frame; autoware_core
+      # does this in a separate node (autoware_downsample_filters voxel_grid_downsample_filter,
+      # voxel_size_x/y/z: 1.5) before ndt_scan_matcher.
+      voxel_size: 1.5
 
     # autoware_ndt_scan_matcher defaults.
     ndt:

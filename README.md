@@ -119,8 +119,6 @@ ndt_omp は `include/ndt_localization/ndt_scan_matcher/ndt_omp/` と `src/ndt_sc
 - NVTL の閾値 `converged_param_nearest_voxel_transformation_likelihood`（Autoware の既定は 2.3）:
   この地図はスキャンとの重なりが 50〜85% と小さいので、bag で `/diagnostics` の NVTL を見て、
   正しい照合まで不採用になっている場合は下げてください。
-- `sensor_points.max_range` は v0.1 で PCL NDT の処理時間に合わせて 18 m にした値です。ndt_omp は速いので、
-  `execution_time` を見ながら広げる余地があります。
 - EKF の外れ値除去は `pose0_rejection_threshold`（マハラノビス距離）、遅延した観測の扱いは
   `smooth_lagged_data` と `history_length` で調整します。
 - `ekf_localizer` の `odom0` には odom 用 EKF の出力をそのまま入れているので、雑音が時間的に相関しています。
