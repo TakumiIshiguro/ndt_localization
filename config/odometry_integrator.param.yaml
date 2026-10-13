@@ -1,0 +1,10 @@
+# (this package only) Integrates the gyro_odometer twist into odom->base_link and /odometry/filtered
+# for Nav2, replacing the odom-frame robot_localization EKF.
+/**:
+  ros__parameters:
+    odom_frame_id: odom
+    base_frame_id: base_link
+    publish_tf: true
+    # A twist is integrated over the interval since the previous one (like the odom-frame EKF predicting
+    # through a dropout). Only intervals longer than this are skipped [s].
+    max_dt: 2.0

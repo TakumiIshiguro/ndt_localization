@@ -105,6 +105,18 @@ rclcpp_components_register_node(vehicle_velocity_converter
   PLUGIN "ndt_localization::vehicle_velocity_converter::VehicleVelocityConverterNode"
   EXECUTABLE vehicle_velocity_converter_node)
 
+# (this package only) odom->base_link and /odometry/filtered from the gyro_odometer twist
+add_library(odometry_integrator SHARED
+  src/odometry_integrator/odometry_integrator.cpp
+  src/odometry_integrator/odometry_integrator_node.cpp)
+target_include_directories(odometry_integrator PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/odometry_integrator>)
+ament_target_dependencies(odometry_integrator rclcpp rclcpp_components geometry_msgs nav_msgs tf2_ros tf2_geometry_msgs)
+target_compile_options(odometry_integrator PRIVATE ${warnings})
+rclcpp_components_register_node(odometry_integrator
+  PLUGIN "ndt_localization::odometry_integrator::OdometryIntegratorNode"
+  EXECUTABLE odometry_integrator_node)
+
 # autoware_pose_initializer (user-defined initial pose and RViz /initialpose only)
 add_library(pose_initializer SHARED
   src/pose_initializer/pose_initializer.cpp
@@ -135,7 +147,7 @@ rclcpp_components_register_node(ndt_scan_matcher
   EXECUTOR MultiThreadedExecutor)
 
 install(TARGETS multigrid_ndt_omp localization_util kalman_filter ekf_localizer
-  gyro_odometer vehicle_velocity_converter pose_initializer ndt_scan_matcher
+  gyro_odometer vehicle_velocity_converter odometry_integrator pose_initializer ndt_scan_matcher
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
@@ -173,6 +185,8 @@ if(BUILD_TESTING)
   ament_add_gtest(test_vehicle_velocity_converter
     test/vehicle_velocity_converter/test_vehicle_velocity_converter.cpp)
   target_link_libraries(test_vehicle_velocity_converter vehicle_velocity_converter)
+  ament_add_gtest(test_odometry_integrator test/odometry_integrator/test_odometry_integrator.cpp)
+  target_link_libraries(test_odometry_integrator odometry_integrator)
   ament_add_gtest(test_pose_initializer test/test_pose_initializer.cpp)
   target_link_libraries(test_pose_initializer pose_initializer)
 endif()
