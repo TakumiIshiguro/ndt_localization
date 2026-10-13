@@ -40,7 +40,8 @@ target_link_libraries(multigrid_ndt_omp PUBLIC ${PCL_LIBRARIES} OpenMP::OpenMP_C
 # autoware_localization_util
 add_library(localization_util SHARED
   src/localization_util/util_func.cpp
-  src/localization_util/smart_pose_buffer.cpp)
+  src/localization_util/smart_pose_buffer.cpp
+  src/localization_util/covariance_ellipse.cpp)
 target_include_directories(localization_util PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(localization_util PUBLIC Eigen3::Eigen)
 ament_target_dependencies(localization_util PUBLIC rclcpp geometry_msgs tf2 tf2_eigen tf2_geometry_msgs)
@@ -72,7 +73,7 @@ install(FILES README.md DESTINATION share/${PROJECT_NAME})
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   # Test file names follow autoware_localization_util/test and autoware_ndt_scan_matcher/test.
-  foreach(test_name util_func smart_pose_buffer)
+  foreach(test_name util_func smart_pose_buffer covariance_ellipse)
     ament_add_gtest(test_${test_name} test/test_${test_name}.cpp)
     target_link_libraries(test_${test_name} localization_util)
   endforeach()
