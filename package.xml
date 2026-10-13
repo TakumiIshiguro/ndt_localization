@@ -2,7 +2,7 @@
 <package format="3">
   <name>ndt_localization</name>
   <version>0.2.0</version>
-  <description>Autoware-style NDT scan matcher (vendored multigrid ndt_omp) for a fixed 3D map, fused with wheel/IMU odometry by a map-frame robot_localization EKF.</description>
+  <description>Autoware Core style localization on a fixed 3D map: NDT scan matcher (vendored multigrid ndt_omp), ekf_localizer (publishing map-&gt;odom), gyro_odometer and an odometry integrator for odom-&gt;base_link.</description>
   <maintainer email="takumi@example.com">takumi</maintainer>
   <license>Apache-2.0</license>
   <license>BSD-2-Clause</license>
@@ -23,8 +23,8 @@
   <depend>eigen</depend>
   <depend>libboost-dev</depend>
   <depend>fmt</depend>
-  <exec_depend>robot_localization</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <test_depend>ament_cmake_gtest</test_depend>

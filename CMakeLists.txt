@@ -137,7 +137,7 @@ add_library(ndt_scan_matcher SHARED
 target_include_directories(ndt_scan_matcher PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
 target_link_libraries(ndt_scan_matcher localization_util multigrid_ndt_omp)
-ament_target_dependencies(ndt_scan_matcher rclcpp rclcpp_components sensor_msgs nav_msgs geometry_msgs
+ament_target_dependencies(ndt_scan_matcher rclcpp rclcpp_components sensor_msgs geometry_msgs
   diagnostic_msgs tf2_ros pcl_conversions)
 target_compile_options(ndt_scan_matcher PRIVATE ${warnings})
 # autoware registers with ROS2_EXECUTOR MultiThreadedExecutor (autoware_agnocast_wrapper_register_node)

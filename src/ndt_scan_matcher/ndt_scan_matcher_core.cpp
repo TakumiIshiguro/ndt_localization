@@ -49,8 +49,8 @@ NDTScanMatcher::NDTScanMatcher(const rclcpp::NodeOptions & options)
     this->get_logger(), param_.validation.initial_pose_timeout_sec,
     param_.validation.initial_pose_distance_tolerance_m);
 
-  initial_pose_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-    "ekf_odom", 100, std::bind(&NDTScanMatcher::callback_initial_pose, this, std::placeholders::_1),
+  initial_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+    "ekf_pose_with_covariance", 10, std::bind(&NDTScanMatcher::callback_initial_pose, this, std::placeholders::_1),
     initial_pose_sub_opt);
   sensor_points_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "points_raw", rclcpp::SensorDataQoS().keep_last(1),
@@ -75,7 +75,8 @@ NDTScanMatcher::NDTScanMatcher(const rclcpp::NodeOptions & options)
 }
 
 // 参照: NDTScanMatcher::callback_initial_pose
-void NDTScanMatcher::callback_initial_pose(const nav_msgs::msg::Odometry::ConstSharedPtr initial_pose_msg_ptr)
+void NDTScanMatcher::callback_initial_pose(
+  const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr)
 {
   diagnostics_initial_pose_->clear();
   callback_initial_pose_main(initial_pose_msg_ptr);
@@ -83,7 +84,8 @@ void NDTScanMatcher::callback_initial_pose(const nav_msgs::msg::Odometry::ConstS
 }
 
 // 参照: NDTScanMatcher::callback_initial_pose_main
-void NDTScanMatcher::callback_initial_pose_main(const nav_msgs::msg::Odometry::ConstSharedPtr initial_pose_msg_ptr)
+void NDTScanMatcher::callback_initial_pose_main(
+  const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr)
 {
   diagnostics_initial_pose_->add_key_value(
     "topic_time_stamp", static_cast<rclcpp::Time>(initial_pose_msg_ptr->header.stamp).nanoseconds());
@@ -100,10 +102,8 @@ void NDTScanMatcher::callback_initial_pose_main(const nav_msgs::msg::Odometry::C
     return;
   }
 
-  auto initial_pose = std::make_shared<geometry_msgs::msg::PoseWithCovarianceStamped>();
-  initial_pose->header = initial_pose_msg_ptr->header;
-  initial_pose->pose = initial_pose_msg_ptr->pose;
-  initial_pose_buffer_->push_back(initial_pose);
+  initial_pose_buffer_->push_back(
+    std::make_shared<geometry_msgs::msg::PoseWithCovarianceStamped>(*initial_pose_msg_ptr));
 }
 
 // 参照: NDTScanMatcher::callback_sensor_points

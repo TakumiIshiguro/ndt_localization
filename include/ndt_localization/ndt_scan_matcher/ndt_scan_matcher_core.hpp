@@ -2,18 +2,15 @@
 //   localization/autoware_ndt_scan_matcher/include/autoware/ndt_scan_matcher/ndt_scan_matcher_core.hpp
 //
 //   points_raw（センサ座標系）─▶ 前処理 ─▶ NDT（multigrid ndt_omp）─▶ ndt_pose(_with_covariance)
-//   ekf_odom（map → base_link）─▶ SmartPoseBuffer ─▶ スキャン時刻の初期値 ─┘
+//   ekf_pose_with_covariance（map → base_link）─▶ SmartPoseBuffer ─▶ スキャン時刻の初期値 ─┘
 //
 // 移植したもの: callback_initial_pose(_main)、callback_sensor_points(_main)、
 // transform_sensor_measurement、publish_pose、publish_point_cloud、診断
 // （scan_matching_status / initial_pose_subscriber_status）。名前と採否判定は Autoware と同じ。
 // 違い:
-//  - 初期値の入力が PoseWithCovarianceStamped の "ekf_pose_with_covariance" ではなく、
-//    nav_msgs/Odometry の "ekf_odom"（robot_localization の出力）。
 //  - map_update_module / pcd_loader クライアントがない。PCD を 1 つコンストラクタで読み
 //    （map_loader/pointcloud_map_loader）、debug/loaded_pointcloud_map に配信する。
 //  - 点群の間引きをノード内で行う（pointcloud_preprocessor）。
-//  - 初期値は nav_msgs/Odometry で受け取る（robot_localization が PoseWithCovarianceStamped を出さないため）。
 //  - 移植していないもの: trigger_node / ndt_align サービス（常に有効扱い）、正則化、
 //    共分散推定（FIXED_VALUE のみ）、publish_tf / publish_marker とデバッグ用トピック。
 #pragma once
@@ -26,7 +23,6 @@
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
-#include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <array>
 #include <memory>
@@ -39,7 +35,7 @@ using DiagnosticsInterface = utils_diagnostics::DiagnosticsInterface;
 /**
  * @brief 固定の 3D 点群地図に対して LiDAR 点群を NDT で照合し、map 座標系での姿勢を出すノード。
  *
- * 購読: points_raw（PointCloud2、センサ座標系）、ekf_odom（Odometry、map → base_link）
+ * 購読: points_raw（PointCloud2、センサ座標系）、ekf_pose_with_covariance（PoseWithCovarianceStamped、map → base_link）
  * 配信: ndt_pose（PoseStamped）、ndt_pose_with_covariance（PoseWithCovarianceStamped）、
  *       points_aligned（照合後の点群）、debug/loaded_pointcloud_map（表示用の地図、Transient Local）、
  *       /diagnostics
@@ -66,19 +62,19 @@ public:
 private:
   /**
    * @brief EKF 姿勢のコールバック。診断を初期化し、本体を呼び、診断を配信する。
-   * @param[in] initial_pose_msg_ptr robot_localization の出力（map → base_link）。
+   * @param[in] initial_pose_msg_ptr ekf_localizer の出力（biased_pose_with_covariance、map → base_link）。
    * 出力: /diagnostics の initial_pose_subscriber_status。
    */
-  void callback_initial_pose(const nav_msgs::msg::Odometry::ConstSharedPtr initial_pose_msg_ptr);
+  void callback_initial_pose(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr);
 
   /**
    * @brief EKF 姿勢を検証し、問題なければ SmartPoseBuffer に追加する。
-   * @details Autoware との違い: Odometry を受け取る、有効化の確認がない、
-   *          map_update_module 用の latest_ekf_position_ を持たない。
-   * @param[in] initial_pose_msg_ptr robot_localization の出力。header.frame_id が map_frame であること。
+   * @details Autoware との違い: 有効化の確認がない、map_update_module 用の latest_ekf_position_ を持たない。
+   * @param[in] initial_pose_msg_ptr ekf_localizer の出力。header.frame_id が map_frame であること。
    * 出力: initial_pose_buffer_ への追加。不正なら診断を ERROR にして何もしない。
    */
-  void callback_initial_pose_main(const nav_msgs::msg::Odometry::ConstSharedPtr initial_pose_msg_ptr);
+  void callback_initial_pose_main(
+    const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr);
 
   /**
    * @brief 点群のコールバック。照合を行い、失敗の連続回数を数えて診断を配信する。
@@ -134,7 +130,7 @@ private:
   void publish_point_cloud(const rclcpp::Time & sensor_ros_time, const std::string & frame_id,
     const pcl::shared_ptr<pcl::PointCloud<PointSource>> & sensor_points_in_map_ptr);
 
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr initial_pose_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sensor_points_sub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr sensor_aligned_pose_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr ndt_pose_pub_;
