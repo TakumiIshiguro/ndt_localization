@@ -1,0 +1,9 @@
+# Reference: autoware_core (commit e0a8ab84)
+#   sensing/autoware_vehicle_velocity_converter/config/vehicle_velocity_converter.param.yaml
+# Same names and values. The input is the wheel nav_msgs/Odometry (/odom), whose twist has no covariance,
+# so the covariance comes from these standard deviations.
+/**:
+  ros__parameters:
+    speed_scale_factor: 1.0  # [.]
+    velocity_stddev_xx: 0.2  # [m/s]
+    angular_velocity_stddev_zz: 0.1  # [rad/s]

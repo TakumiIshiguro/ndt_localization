@@ -77,6 +77,34 @@ rclcpp_components_register_node(ekf_localizer
   PLUGIN "ndt_localization::ekf_localizer::EKFLocalizerNode"
   EXECUTABLE ekf_localizer_node)
 
+# autoware_gyro_odometer
+add_library(gyro_odometer SHARED
+  src/gyro_odometer/gyro_odometer.cpp
+  src/gyro_odometer/gyro_odometer_diagnostics.cpp
+  src/gyro_odometer/gyro_odometer_node.cpp)
+target_include_directories(gyro_odometer PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/gyro_odometer>)
+target_link_libraries(gyro_odometer fmt::fmt)
+ament_target_dependencies(gyro_odometer rclcpp rclcpp_components geometry_msgs sensor_msgs diagnostic_msgs
+  tf2 tf2_ros tf2_geometry_msgs)
+target_compile_options(gyro_odometer PRIVATE ${warnings})
+rclcpp_components_register_node(gyro_odometer
+  PLUGIN "ndt_localization::gyro_odometer::GyroOdometerNode"
+  EXECUTABLE gyro_odometer_node)
+
+# autoware_vehicle_velocity_converter (takes the wheel nav_msgs/Odometry instead of VelocityReport)
+add_library(vehicle_velocity_converter SHARED
+  src/vehicle_velocity_converter/vehicle_velocity_converter.cpp
+  src/vehicle_velocity_converter/vehicle_velocity_converter_node.cpp)
+target_include_directories(vehicle_velocity_converter PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/vehicle_velocity_converter>)
+ament_target_dependencies(vehicle_velocity_converter rclcpp rclcpp_components geometry_msgs nav_msgs tf2_geometry_msgs)
+target_compile_options(vehicle_velocity_converter PRIVATE ${warnings})
+rclcpp_components_register_node(vehicle_velocity_converter
+  PLUGIN "ndt_localization::vehicle_velocity_converter::VehicleVelocityConverterNode"
+  EXECUTABLE vehicle_velocity_converter_node)
+
 # autoware_ndt_scan_matcher (+ in-process map loading and sensor preprocessing)
 add_library(ndt_scan_matcher SHARED
   src/ndt_scan_matcher/ndt_scan_matcher_core.cpp
@@ -95,7 +123,8 @@ rclcpp_components_register_node(ndt_scan_matcher
   EXECUTABLE ndt_scan_matcher_node
   EXECUTOR MultiThreadedExecutor)
 
-install(TARGETS multigrid_ndt_omp localization_util kalman_filter ekf_localizer ndt_scan_matcher
+install(TARGETS multigrid_ndt_omp localization_util kalman_filter ekf_localizer
+  gyro_odometer vehicle_velocity_converter ndt_scan_matcher
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
@@ -125,5 +154,13 @@ if(BUILD_TESTING)
     ament_add_gtest(${test_name} ${filepath})
     target_link_libraries(${test_name} ekf_localizer)
   endforeach()
+  # autoware_gyro_odometer/test
+  foreach(test_name gyro_odometer gyro_odometer_diagnostics gyro_odometer_node)
+    ament_add_gtest(test_${test_name} test/gyro_odometer/test_${test_name}.cpp)
+    target_link_libraries(test_${test_name} gyro_odometer)
+  endforeach()
+  ament_add_gtest(test_vehicle_velocity_converter
+    test/vehicle_velocity_converter/test_vehicle_velocity_converter.cpp)
+  target_link_libraries(test_vehicle_velocity_converter vehicle_velocity_converter)
 endif()
 ament_package()

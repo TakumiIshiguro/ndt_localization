@@ -1,0 +1,6 @@
+# Reference: autoware_core (commit e0a8ab84)
+#   localization/autoware_gyro_odometer/config/gyro_odometer.param.yaml (same names and values)
+/**:
+  ros__parameters:
+    output_frame: "base_link"
+    message_timeout_sec: 0.2
