@@ -1,0 +1,22 @@
+# Reference: autoware_core (commit e0a8ab84)
+#   localization/autoware_pose_initializer/config/pose_initializer.param.yaml
+# Only user_defined_initial_pose and output_pose_covariance are used (simplified pose_initializer).
+/**:
+  ros__parameters:
+    # Startup pose in the map frame: [x, y, z, qx, qy, qz, qw]. In autoware_core this comes from the
+    # initial_pose launch argument; ndt_localization.launch.py overrides it the same way.
+    # RViz "2D Pose Estimate" (/initialpose) re-initializes at any time.
+    user_defined_initial_pose:
+      enable: true
+      pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
+    # output
+    output_pose_covariance:
+      [
+        1.0, 0.0, 0.0,  0.0,  0.0,  0.0,
+        0.0, 1.0, 0.0,  0.0,  0.0,  0.0,
+        0.0, 0.0, 0.01, 0.0,  0.0,  0.0,
+        0.0, 0.0, 0.0,  0.01, 0.0,  0.0,
+        0.0, 0.0, 0.0,  0.0,  0.01, 0.0,
+        0.0, 0.0, 0.0,  0.0,  0.0,  0.2,
+      ]

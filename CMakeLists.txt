@@ -105,6 +105,17 @@ rclcpp_components_register_node(vehicle_velocity_converter
   PLUGIN "ndt_localization::vehicle_velocity_converter::VehicleVelocityConverterNode"
   EXECUTABLE vehicle_velocity_converter_node)
 
+# autoware_pose_initializer (user-defined initial pose and RViz /initialpose only)
+add_library(pose_initializer SHARED
+  src/pose_initializer/pose_initializer.cpp
+  src/pose_initializer/pose_initializer_node.cpp)
+target_include_directories(pose_initializer PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
+ament_target_dependencies(pose_initializer rclcpp rclcpp_components geometry_msgs std_srvs)
+target_compile_options(pose_initializer PRIVATE ${warnings})
+rclcpp_components_register_node(pose_initializer
+  PLUGIN "ndt_localization::pose_initializer::PoseInitializerNode"
+  EXECUTABLE pose_initializer_node)
+
 # autoware_ndt_scan_matcher (+ in-process map loading and sensor preprocessing)
 add_library(ndt_scan_matcher SHARED
   src/ndt_scan_matcher/ndt_scan_matcher_core.cpp
@@ -124,7 +135,7 @@ rclcpp_components_register_node(ndt_scan_matcher
   EXECUTOR MultiThreadedExecutor)
 
 install(TARGETS multigrid_ndt_omp localization_util kalman_filter ekf_localizer
-  gyro_odometer vehicle_velocity_converter ndt_scan_matcher
+  gyro_odometer vehicle_velocity_converter pose_initializer ndt_scan_matcher
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
@@ -162,5 +173,7 @@ if(BUILD_TESTING)
   ament_add_gtest(test_vehicle_velocity_converter
     test/vehicle_velocity_converter/test_vehicle_velocity_converter.cpp)
   target_link_libraries(test_vehicle_velocity_converter vehicle_velocity_converter)
+  ament_add_gtest(test_pose_initializer test/test_pose_initializer.cpp)
+  target_link_libraries(test_pose_initializer pose_initializer)
 endif()
 ament_package()
