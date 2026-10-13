@@ -1,0 +1,13 @@
+# Reference: autoware_universe (commit 2ee1a85)
+#   sensing/autoware_imu_corrector/config/imu_corrector.param.yaml (same names and values)
+# The ADIS16465 driver (adi_driver2) publishes an all-zero angular_velocity_covariance, which makes the EKF trust
+# the gyro completely and reject the twist; these standard deviations replace it.
+/**:
+  ros__parameters:
+    angular_velocity_offset_x: 0.0    # [rad/s]
+    angular_velocity_offset_y: 0.0    # [rad/s]
+    angular_velocity_offset_z: 0.0    # [rad/s]
+    angular_velocity_stddev_xx: 0.03  # [rad/s]
+    angular_velocity_stddev_yy: 0.03  # [rad/s]
+    angular_velocity_stddev_zz: 0.03  # [rad/s]
+    acceleration_stddev: 10000.0

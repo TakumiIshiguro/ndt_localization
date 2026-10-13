@@ -92,6 +92,18 @@ rclcpp_components_register_node(gyro_odometer
   PLUGIN "ndt_localization::gyro_odometer::GyroOdometerNode"
   EXECUTABLE gyro_odometer_node)
 
+# autoware_imu_corrector (Universe; imu_corrector only, without dynamic bias / scale correction)
+add_library(imu_corrector SHARED
+  src/imu_corrector/imu_corrector_core.cpp)
+target_include_directories(imu_corrector PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/imu_corrector>)
+ament_target_dependencies(imu_corrector rclcpp rclcpp_components geometry_msgs sensor_msgs
+  tf2 tf2_ros tf2_geometry_msgs)
+target_compile_options(imu_corrector PRIVATE ${warnings})
+rclcpp_components_register_node(imu_corrector
+  PLUGIN "ndt_localization::imu_corrector::ImuCorrector"
+  EXECUTABLE imu_corrector_node)
+
 # autoware_vehicle_velocity_converter (takes the wheel nav_msgs/Odometry instead of VelocityReport)
 add_library(vehicle_velocity_converter SHARED
   src/vehicle_velocity_converter/vehicle_velocity_converter.cpp
@@ -146,8 +158,9 @@ rclcpp_components_register_node(ndt_scan_matcher
   EXECUTABLE ndt_scan_matcher_node
   EXECUTOR MultiThreadedExecutor)
 
-install(TARGETS multigrid_ndt_omp localization_util kalman_filter ekf_localizer
-  gyro_odometer vehicle_velocity_converter odometry_integrator pose_initializer ndt_scan_matcher
+install(TARGETS multigrid_ndt_omp localization_util kalman_filter ekf_localizer gyro_odometer imu_corrector
+  vehicle_velocity_converter
+  odometry_integrator pose_initializer ndt_scan_matcher
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
@@ -189,5 +202,7 @@ if(BUILD_TESTING)
   target_link_libraries(test_odometry_integrator odometry_integrator)
   ament_add_gtest(test_pose_initializer test/test_pose_initializer.cpp)
   target_link_libraries(test_pose_initializer pose_initializer)
+  ament_add_gtest(test_imu_corrector test/imu_corrector/test_imu_corrector.cpp)
+  target_link_libraries(test_imu_corrector imu_corrector)
 endif()
 ament_package()

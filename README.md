@@ -8,7 +8,7 @@ Nav2 用のオドメトリ（`odom→base_link` と `/odometry/filtered`）も�
 
 ```
  /odom（車輪）─▶ vehicle_velocity_converter ─┐
- /imu/data ──────────────────────────────────▶ gyro_odometer ─▶ /localization/twist_estimator/twist_with_covariance
+ /imu/data ─▶ imu_corrector ─────────────────▶ gyro_odometer ─▶ /localization/twist_estimator/twist_with_covariance
                                                                      │                          │
                                          odometry_integrator ◀───────┘                          ▼
                                            ├ TF odom→base_link        /surestar_points ─▶ ndt_scan_matcher ─▶ ekf_localizer
@@ -23,6 +23,7 @@ Nav2 用のオドメトリ（`odom→base_link` と `/odometry/filtered`）も�
 | ノード（名前空間） | Autoware Core の対応 | 役割 |
 | --- | --- | --- |
 | `vehicle_velocity_converter`（`/sensing`） | `autoware_vehicle_velocity_converter` | 車輪オドメトリの速度に固定の共分散を付ける（入力は VelocityReport ではなく Odometry） |
+| `imu_corrector`（`/sensing/imu`） | `autoware_imu_corrector`（Universe。Core にはない） | IMU の角速度の共分散をパラメータの値で上書きし、base_link に回す |
 | `gyro_odometer`（`/localization/twist_estimator`） | `autoware_gyro_odometer` | 車輪の vx と IMU の角速度を 1 つの twist にまとめる |
 | `ndt_scan_matcher`（`/localization/pose_estimator`） | `autoware_ndt_scan_matcher` | multigrid ndt_omp による照合 |
 | `ekf_localizer`（`/localization/pose_twist_fusion_filter`） | `autoware_ekf_localizer` | twist と NDT の姿勢を融合する。TF は `map→base_link` ではなく `map→odom` を配信 |
@@ -35,6 +36,9 @@ Core との主な違い:
   （local_costmap と behavior_server の `global_frame: odom`）を使うので、`map→odom = map→base_link × (odom→base_link)⁻¹`
   を出します（`misc.odom_frame_id`。空にすると Core と同じ `map→base_link`）。
 - **オドメトリ**: Core には odom フレームがないので、`odometry_integrator` を追加しました。odom と EKF は同じ twist を使います。
+- **IMU**: Core の launch は IMU を使わず、車輪の速度をそのまま EKF に渡します（twist_estimator は relay の仮置き）。
+  本パッケージは gyro_odometer で IMU の角速度を使うので、IMU のドライバ（adi_driver2）が出す共分散 0 を上書きするために、
+  Universe の `imu_corrector` を `/sensing/imu` に置いています（Universe の sensing と同じ場所）。
 - **なし**: stop_filter、twist2accel、map_loader ノード、voxel_grid_downsample_filter ノード（NDT の中で前処理）、
   NDT の `trigger_node` と `ndt_align_srv`、pose_initializer の AD API・GNSS・map_height_fitter。
 
@@ -55,6 +59,7 @@ Autoware にないものには `(this package only)` と付けています。
 | `src/ekf_localizer/`（`utils/` を含む） | `localization/autoware_ekf_localizer/src/`（同じファイル構成。agnocast を rclcpp に置き換え、TF を `map→odom` に） |
 | `src/gyro_odometer/` | `localization/autoware_gyro_odometer/src/`（同じファイル構成。agnocast を rclcpp に置き換え） |
 | `src/vehicle_velocity_converter/` | `sensing/autoware_vehicle_velocity_converter/src/`（入力を Odometry に変更） |
+| `src/imu_corrector/` | autoware_universe（commit `2ee1a85`）`sensing/autoware_imu_corrector/{include/autoware/imu_corrector,src}/imu_corrector_core.*`（imu_corrector だけ。動的バイアスとスケールの補正は除く） |
 | `src/pose_initializer/` | `localization/autoware_pose_initializer/src/`（起動時の姿勢と EKF の起動の手順だけ） |
 | `src/odometry_integrator/` | なし（本パッケージ独自） |
 | `include/.../utils_diagnostics/diagnostics_interface.hpp` | autoware_utils `autoware_utils_diagnostics/diagnostics_interface.hpp` |
@@ -63,6 +68,7 @@ Autoware にないものには `(this package only)` と付けています。
 | `src/pointcloud_preprocessor/pointcloud_preprocessor.*` | `sensing/autoware_downsample_filters`（voxel grid）の処理をノード内で行う |
 | `config/ndt_scan_matcher.param.yaml` | `localization/autoware_ndt_scan_matcher/config/ndt_scan_matcher.param.yaml` |
 | `config/{ekf_localizer,gyro_odometer,vehicle_velocity_converter,pose_initializer}.param.yaml` | 各パッケージの `config/`（同じ名前と値。追加したものには `(this package only)`） |
+| `config/imu_corrector.param.yaml` | autoware_universe `sensing/autoware_imu_corrector/config/imu_corrector.param.yaml`（同じ名前と値） |
 | `launch/ndt_localization.launch.py` | `localization/autoware_core_localization/launch/autoware_core_localization.launch.xml` |
 | `test/test_{util_func,smart_pose_buffer,covariance_ellipse,ndt_scan_matcher_helper,kalman_filter,time_delay_kalman_filter}.cpp`、`test/ekf_localizer/`、`test/gyro_odometer/`、`test/vehicle_velocity_converter/` | 各パッケージの同名テスト（テスト名も合わせています） |
 
@@ -100,10 +106,10 @@ launch 引数:
 | --- | --- | --- |
 | `lidar_input_topic` | `/surestar_points` | LiDAR 点群 |
 | `vehicle_odometry_input_topic` | `/odom` | 車輪オドメトリ（Odometry。twist の vx を使う） |
-| `imu_input_topic` | `/imu/data` | IMU（角速度と angular_velocity_covariance を使う） |
+| `imu_input_topic` | `/imu/data` | IMU（imu_corrector の入力。角速度を使う） |
 | `initial_pose` | （YAML の `user_defined_initial_pose`） | 起動時の姿勢 `[x, y, z, qx, qy, qz, qw]` |
 | `map_path` | （YAML の `map.path`） | PCD 地図 |
-| `*_param_path` | `config/` 内の各ファイル | vehicle_velocity_converter、gyro_odometer、odometry_integrator、ndt_scan_matcher、ekf_localizer、pose_initializer |
+| `*_param_path` | `config/` 内の各ファイル | vehicle_velocity_converter、imu_corrector、gyro_odometer、odometry_integrator、ndt_scan_matcher、ekf_localizer、pose_initializer |
 | `use_sim_time` / `rviz` / `rviz_config` | | |
 
 ## 入出力
@@ -112,7 +118,8 @@ launch 引数:
 | --- | --- | --- |
 | `/surestar_points` | PointCloud2 | 入力。x/y/z は FLOAT32（`pcl::fromROSMsg` で読む） |
 | `/odom` | Odometry | 入力。車輪オドメトリ。twist（base_link）だけを使う |
-| `/imu/data` | Imu | 入力。角速度を base_link に回して使う |
+| `/imu/data` | Imu | 入力。imu_corrector が受け取る |
+| `/sensing/imu/imu_data` | Imu | imu_corrector の出力（base_link。角速度の共分散はパラメータの値） |
 | `/initialpose` | PoseWithCovarianceStamped | 入力。map フレーム。pose_initializer が受け取る |
 | `/sensing/vehicle_velocity_converter/twist_with_covariance` | TwistWithCovarianceStamped | 共分散を付けた車輪の速度 |
 | `/localization/twist_estimator/twist_with_covariance` | TwistWithCovarianceStamped | gyro_odometer の出力（車輪の vx と IMU の角速度） |
@@ -163,8 +170,10 @@ ndt_omp は `include/ndt_localization/ndt_scan_matcher/ndt_omp/` と `src/ndt_sc
   古い速度が捨てられ「Twist queue size ... is exceeding max_queue_size」の警告が出ます。gyro_odometer の出力は
   車輪と IMU の遅い方の周期になるので、実機の周期を見て、必要なら大きくしてください。
 - 車輪の速度の共分散は `vehicle_velocity_converter.param.yaml` の標準偏差、IMU の角速度の共分散は
-  IMU の `angular_velocity_covariance`（の対角の最大値）から決まります。IMU が共分散 0 を出す場合は、
-  EKF が角速度を完全に信じることになるので、IMU のドライバ側で値を設定してください。
+  `imu_corrector.param.yaml` の `angular_velocity_stddev_*`（Universe の既定値 0.03 rad/s。3 軸の最大値が使われる）から
+  決まります。IMU が出す共分散は使いません。共分散が 0 だと EKF が角速度を完全に信じて、速度の観測を
+  マハラノビス距離で棄却し続けます。この値はセンサーの雑音（ADIS16465 を止めた状態で 1〜4 mrad/s）より大きく、
+  振動やモデルの誤差も含めた値として扱います。
 
 ## v0.1 から変わった点
 

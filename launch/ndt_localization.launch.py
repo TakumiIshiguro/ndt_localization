@@ -6,6 +6,7 @@
   名前空間 / ノード                                       | autoware_core の対応
   --------------------------------------------------------+---------------------------------------------
   /sensing/vehicle_velocity_converter                      | autoware_vehicle_velocity_converter（入力は Odometry）
+  /sensing/imu/imu_corrector                               | autoware_imu_corrector（Universe。Core にはない）
   /localization/twist_estimator/gyro_odometer              | autoware_gyro_odometer（Core の launch では relay の場所）
   /localization/pose_estimator/ndt_scan_matcher            | autoware_ndt_scan_matcher（名前空間も同じ）
   /localization/pose_twist_fusion_filter/ekf_localizer     | autoware_ekf_localizer（TF は map->odom）
@@ -13,7 +14,7 @@
   /localization/util/odometry_integrator                   | （本パッケージ独自）odom->base_link と /odometry/filtered
 
   /odom（車輪）─▶ vehicle_velocity_converter ─┐
-  /imu/data ─────────────────────────────────▶ gyro_odometer ─▶ /localization/twist_estimator/twist_with_covariance
+  /imu/data ─▶ imu_corrector ────────────────▶ gyro_odometer ─▶ /localization/twist_estimator/twist_with_covariance
                                                                    │                          │
                                        odometry_integrator ◀───────┘                          ▼
                                          ├ TF odom->base_link            /surestar_points ─▶ ndt_scan_matcher ─▶ ekf_localizer
@@ -40,6 +41,7 @@ from launch_ros.actions import Node
 
 PARAM_PATH_ARGS = (
     ('vehicle_velocity_converter_param_path', 'vehicle_velocity_converter.param.yaml'),
+    ('imu_corrector_param_path', 'imu_corrector.param.yaml'),
     ('gyro_odometer_param_path', 'gyro_odometer.param.yaml'),
     ('odometry_integrator_param_path', 'odometry_integrator.param.yaml'),
     ('ndt_scan_matcher_param_path', 'ndt_scan_matcher.param.yaml'),
@@ -88,13 +90,21 @@ def create_nodes(context):
              parameters=[param('vehicle_velocity_converter'), sim_time],
              remappings=[('odometry', value('vehicle_odometry_input_topic')),
                          ('twist_with_covariance', '/sensing/vehicle_velocity_converter/twist_with_covariance')]),
+        # 参照: autoware_universe の autoware_imu_corrector/launch/imu_corrector.launch.xml。名前空間と出力のトピックは
+        # Universe の sensing の構成（/sensing/imu の下、出力は imu_data）に合わせる。IMU の共分散が 0 だと EKF が
+        # 角速度を完全に信じて速度を棄却するので、Core にはないが入れている
+        Node(package='ndt_localization', executable='imu_corrector_node',
+             name='imu_corrector', namespace='sensing/imu', output='screen',
+             parameters=[param('imu_corrector'), sim_time],
+             remappings=[('input', value('imu_input_topic')),
+                         ('output', '/sensing/imu/imu_data')]),
         # 参照: autoware_gyro_odometer/launch/gyro_odometer.launch.xml。Core の launch の twist_estimator の場所に置き、
         # 出力を /localization/twist_estimator/twist_with_covariance にする（Universe と同じ）
         Node(package='ndt_localization', executable='gyro_odometer_node',
              name='gyro_odometer', namespace='localization/twist_estimator', output='screen',
              parameters=[param('gyro_odometer'), sim_time],
              remappings=[('vehicle/twist_with_covariance', '/sensing/vehicle_velocity_converter/twist_with_covariance'),
-                         ('imu', value('imu_input_topic')),
+                         ('imu', '/sensing/imu/imu_data'),
                          ('twist_raw', 'gyro_twist_raw'),
                          ('twist_with_covariance_raw', 'gyro_twist_with_covariance_raw'),
                          ('twist', 'gyro_twist'),
