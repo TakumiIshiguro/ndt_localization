@@ -18,6 +18,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
@@ -27,6 +28,7 @@ find_package(PCL REQUIRED COMPONENTS common io filters kdtree registration)
 find_package(OpenMP REQUIRED)
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(fmt REQUIRED)
 set(warnings -Wall -Wextra -Wpedantic)
 
 # autoware_ndt_scan_matcher: multigrid_ndt_omp (vendored, BSD-2 / Apache-2.0, see ndt_omp/LICENSE)
@@ -54,6 +56,27 @@ add_library(kalman_filter SHARED
 target_include_directories(kalman_filter PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(kalman_filter PUBLIC Eigen3::Eigen)
 
+# autoware_ekf_localizer (publishes map->odom instead of map->base_link when misc.odom_frame_id is set)
+add_library(ekf_localizer SHARED
+  src/ekf_localizer/ekf_localizer.cpp
+  src/ekf_localizer/ekf_localizer_node.cpp
+  src/ekf_localizer/utils/covariance.cpp
+  src/ekf_localizer/utils/diagnostics.cpp
+  src/ekf_localizer/utils/hyper_parameters.cpp
+  src/ekf_localizer/utils/mahalanobis.cpp
+  src/ekf_localizer/utils/measurement.cpp
+  src/ekf_localizer/utils/state_transition.cpp
+  src/ekf_localizer/utils/warning_message.cpp)
+target_include_directories(ekf_localizer PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/ekf_localizer>)
+target_link_libraries(ekf_localizer kalman_filter localization_util fmt::fmt)
+ament_target_dependencies(ekf_localizer rclcpp rclcpp_components geometry_msgs nav_msgs diagnostic_msgs std_srvs
+  tf2 tf2_ros tf2_geometry_msgs)
+target_compile_options(ekf_localizer PRIVATE ${warnings})
+rclcpp_components_register_node(ekf_localizer
+  PLUGIN "ndt_localization::ekf_localizer::EKFLocalizerNode"
+  EXECUTABLE ekf_localizer_node)
+
 # autoware_ndt_scan_matcher (+ in-process map loading and sensor preprocessing)
 add_library(ndt_scan_matcher SHARED
   src/ndt_scan_matcher/ndt_scan_matcher_core.cpp
@@ -72,7 +95,7 @@ rclcpp_components_register_node(ndt_scan_matcher
   EXECUTABLE ndt_scan_matcher_node
   EXECUTOR MultiThreadedExecutor)
 
-install(TARGETS multigrid_ndt_omp localization_util kalman_filter ndt_scan_matcher
+install(TARGETS multigrid_ndt_omp localization_util kalman_filter ekf_localizer ndt_scan_matcher
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
@@ -94,6 +117,13 @@ if(BUILD_TESTING)
   foreach(test_name kalman_filter time_delay_kalman_filter)
     ament_add_gtest(test_${test_name} test/test_${test_name}.cpp)
     target_link_libraries(test_${test_name} kalman_filter)
+  endforeach()
+  # autoware_ekf_localizer/test (same file layout)
+  file(GLOB_RECURSE ekf_localizer_test_files test/ekf_localizer/*.cpp)
+  foreach(filepath ${ekf_localizer_test_files})
+    get_filename_component(test_name ${filepath} NAME_WE)
+    ament_add_gtest(${test_name} ${filepath})
+    target_link_libraries(${test_name} ekf_localizer)
   endforeach()
 endif()
 ament_package()
